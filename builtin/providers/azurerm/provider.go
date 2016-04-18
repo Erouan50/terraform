@@ -2,12 +2,12 @@ package azurerm
 
 import (
 	"fmt"
-	"log"
+	//	"log"
 	"net/http"
 	"reflect"
 	"strings"
 
-	"github.com/Azure/go-autorest/autorest"
+	//	"github.com/Azure/go-autorest/autorest"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/terraform/helper/mutexkv"
 	"github.com/hashicorp/terraform/helper/resource"
@@ -183,24 +183,28 @@ func azureRMNormalizeLocation(location interface{}) string {
 // where our polling loop will time out _with an operation in progress_, but no ID
 // for the resource - so the state will not know about it, and conflicts will occur
 // on the next run.
-func pollIndefinitelyAsNeeded(client autorest.Client, response *http.Response, acceptableCodes ...int) (*http.Response, error) {
-	var resp *http.Response
-	var err error
 
-	for {
-		resp, err = client.PollAsNeeded(response, acceptableCodes...)
-		if err != nil {
-			if resp.StatusCode != http.StatusAccepted {
-				log.Printf("[DEBUG] Starting new polling loop for %q", response.Request.URL.Path)
-				continue
-			}
-
-			return resp, err
-		}
-
-		return resp, nil
-	}
-}
+// The autorest go seems to do the polling by itself
+//func pollIndefinitelyAsNeeded(client autorest.Client, response *http.Response, acceptableCodes ...int) (*http.Response, error) {
+//	var resp *http.Response
+//	var err error
+//
+//	client.Sender = autorest.DoPollForStatusCodes(autorest.DefaultPollingDuration, autorest.DefaultPollingDelay, acceptableCodes)
+//
+//	for {
+//		resp, err = client.PollAsNeeded(response, acceptableCodes...)
+//		if err != nil {
+//			if resp.StatusCode != http.StatusAccepted {
+//				log.Printf("[DEBUG] Starting new polling loop for %q", response.Request.URL.Path)
+//				continue
+//			}
+//
+//			return resp, err
+//		}
+//
+//		return resp, nil
+//	}
+//}
 
 // armMutexKV is the instance of MutexKV for ARM resources
 var armMutexKV = mutexkv.NewMutexKV()

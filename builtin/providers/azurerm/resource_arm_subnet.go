@@ -102,7 +102,14 @@ func resourceArmSubnetCreate(d *schema.ResourceData, meta interface{}) error {
 		Properties: &properties,
 	}
 
-	resp, err := subnetClient.CreateOrUpdate(resGroup, vnetName, name, subnet)
+	_, err := subnetClient.CreateOrUpdate(resGroup, vnetName, name, subnet)
+	if err != nil {
+		return err
+	}
+
+	// Hack to retrieve the ID of the resource (Was possible easily before: https://github.com/Azure/azure-sdk-for-go/blob/1cb9dff8c37b2918ad1ebd7b294d01100a153d27/arm/network/routes.go#L103)
+	// Maybe the name should be the ID ?
+	resp, err := subnetClient.Get(resGroup, vnetName, name, "")
 	if err != nil {
 		return err
 	}

@@ -204,7 +204,12 @@ func resourceArmNetworkInterfaceCreate(d *schema.ResourceData, meta interface{})
 		Tags:       expandTags(tags),
 	}
 
-	resp, err := ifaceClient.CreateOrUpdate(resGroup, name, iface)
+	_, err := ifaceClient.CreateOrUpdate(resGroup, name, iface)
+	if err != nil {
+		return err
+	}
+
+	resp, err := ifaceClient.Get(resGroup, name, "")
 	if err != nil {
 		return err
 	}

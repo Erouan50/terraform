@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/arm/cdn"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/hashicorp/terraform/helper/hashcode"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -196,7 +197,14 @@ func resourceArmCdnEndpointCreate(d *schema.ResourceData, meta interface{}) erro
 		return err
 	}
 
-	d.SetId(*resp.ID)
+	// Hack to retrieve the ID of the resource (Was possible easly before: https://github.com/Azure/azure-sdk-for-go/blob/1cb9dff8c37b2918ad1ebd7b294d01100a153d27/arm/network/routes.go#L103)
+	var result cdn.TrackedResource
+	err = autorest.Respond(resp.Response, autorest.ByUnmarshallingJSON(&result))
+	if err != nil {
+		return err
+	}
+
+	d.SetId(*result.ID)
 
 	log.Printf("[DEBUG] Waiting for CDN Endpoint (%s) to become available", name)
 	stateConf := &resource.StateChangeConf{
@@ -344,10 +352,6 @@ func resourceArmCdnEndpointDelete(d *schema.ResourceData, meta interface{}) erro
 			return nil
 		}
 		return fmt.Errorf("Error issuing AzureRM delete request for CDN Endpoint %q: %s", name, err)
-	}
-	_, err = pollIndefinitelyAsNeeded(client.Client, accResp.Response, http.StatusNotFound)
-	if err != nil {
-		return fmt.Errorf("Error polling for AzureRM delete request for CDN Endpoint %q: %s", name, err)
 	}
 
 	return err

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/arm/cdn"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -80,7 +81,14 @@ func resourceArmCdnProfileCreate(d *schema.ResourceData, meta interface{}) error
 		return err
 	}
 
-	d.SetId(*resp.ID)
+	// Hack to retrieve the ID of the resource (Was possible easly before: https://github.com/Azure/azure-sdk-for-go/blob/1cb9dff8c37b2918ad1ebd7b294d01100a153d27/arm/network/routes.go#L103)
+	var result cdn.Profile
+	err = autorest.Respond(resp.Response, autorest.ByUnmarshallingJSON(&result))
+	if err != nil {
+		return err
+	}
+
+	d.SetId(*result.ID)
 
 	log.Printf("[DEBUG] Waiting for CDN Profile (%s) to become available", name)
 	stateConf := &resource.StateChangeConf{

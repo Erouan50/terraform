@@ -5,6 +5,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	"github.com/Azure/azure-sdk-for-go/core/http"
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -79,7 +80,14 @@ func resourceArmLocalNetworkGatewayCreate(d *schema.ResourceData, meta interface
 		return fmt.Errorf("Error creating Azure ARM Local Network Gateway '%s': %s", name, err)
 	}
 
-	d.SetId(*resp.ID)
+	// Hack to retrieve the ID of the resource (Was possible easly before: https://github.com/Azure/azure-sdk-for-go/blob/1cb9dff8c37b2918ad1ebd7b294d01100a153d27/arm/network/routes.go#L103)
+	var result network.LocalNetworkGateway
+	err = autorest.Respond(resp.Response, autorest.ByUnmarshallingJSON(&result))
+	if err != nil {
+		return err
+	}
+
+	d.SetId(*result.ID)
 
 	return resourceArmLocalNetworkGatewayRead(d, meta)
 }

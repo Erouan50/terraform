@@ -147,7 +147,14 @@ func resourceArmNetworkSecurityGroupCreate(d *schema.ResourceData, meta interfac
 		Tags: expandTags(tags),
 	}
 
-	resp, err := secClient.CreateOrUpdate(resGroup, name, sg)
+	_, err := secClient.CreateOrUpdate(resGroup, name, sg)
+	if err != nil {
+		return err
+	}
+
+	// Hack to retrieve the ID of the resource (Was possible easily before: https://github.com/Azure/azure-sdk-for-go/blob/1cb9dff8c37b2918ad1ebd7b294d01100a153d27/arm/network/routes.go#L103)
+	// Maybe the name should be the ID ?
+	resp, err := secClient.Get(resGroup, name, "")
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/terraform/terraform"
+	"log"
 )
 
 // ResourceData is used to query and set the attributes of a resource.
@@ -156,7 +157,8 @@ func (d *ResourceData) Set(key string, value interface{}) error {
 			}
 		}
 	}
-
+	log.Printf("[DEBUG] key: %+v", key)
+	log.Printf("[DEBUG] value: %+v", value)
 	return d.setWriter.WriteField(strings.Split(key, "."), value)
 }
 

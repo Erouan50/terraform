@@ -144,10 +144,18 @@ func resourceArmNetworkSecurityRuleCreate(d *schema.ResourceData, meta interface
 		Properties: &properties,
 	}
 
-	resp, err := secClient.CreateOrUpdate(resGroup, nsgName, name, sgr)
+	_, err := secClient.CreateOrUpdate(resGroup, nsgName, name, sgr)
 	if err != nil {
 		return err
 	}
+
+	// Hack to retrieve the ID of the resource (Was possible easily before: https://github.com/Azure/azure-sdk-for-go/blob/1cb9dff8c37b2918ad1ebd7b294d01100a153d27/arm/network/routes.go#L103)
+	// Maybe the name should be the ID ?
+	resp, err := secClient.Get(resGroup, nsgName, name)
+	if err != nil {
+		return err
+	}
+
 	d.SetId(*resp.ID)
 
 	log.Printf("[DEBUG] Waiting for Network Security Rule (%s) to become available", name)

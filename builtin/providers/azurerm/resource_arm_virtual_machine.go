@@ -118,6 +118,11 @@ func resourceArmVirtualMachine() *schema.Resource {
 				Required: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						"os_type": &schema.Schema{
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+
 						"name": &schema.Schema{
 							Type:     schema.TypeString,
 							Required: true,
@@ -126,6 +131,11 @@ func resourceArmVirtualMachine() *schema.Resource {
 						"vhd_uri": &schema.Schema{
 							Type:     schema.TypeString,
 							Required: true,
+						},
+
+						"image_uri": &schema.Schema{
+							Type:     schema.TypeString,
+							Optional: true,
 						},
 
 						"caching": &schema.Schema{
@@ -412,9 +422,16 @@ func resourceArmVirtualMachineCreate(d *schema.ResourceData, meta interface{}) e
 		vm.Plan = plan
 	}
 
-	resp, vmErr := vmClient.CreateOrUpdate(resGroup, name, vm)
+	_, vmErr := vmClient.CreateOrUpdate(resGroup, name, vm)
 	if vmErr != nil {
 		return vmErr
+	}
+
+	// Hack to retrieve the ID of the resource (Was possible easily before: https://github.com/Azure/azure-sdk-for-go/blob/1cb9dff8c37b2918ad1ebd7b294d01100a153d27/arm/network/routes.go#L103)
+	// Maybe the name should be the ID ?
+	resp, err := vmClient.Get(resGroup, name, "")
+	if err != nil {
+		return err
 	}
 
 	d.SetId(*resp.ID)
@@ -490,11 +507,15 @@ func resourceArmVirtualMachineRead(d *schema.ResourceData, meta interface{}) err
 		}
 	}
 
+	log.Printf("[DEBUG] resp.Properties.OsProfile.WindowsConfiguration done")
+
 	if resp.Properties.OsProfile.LinuxConfiguration != nil {
 		if err := d.Set("os_profile_linux_config", schema.NewSet(resourceArmVirtualMachineStorageOsProfileLinuxConfigHash, flattenAzureRmVirtualMachineOsProfileLinuxConfiguration(resp.Properties.OsProfile.LinuxConfiguration))); err != nil {
-			return fmt.Errorf("[DEBUG] Error setting Virtual Machine Storage OS Profile Linux Configuration: %#v", err)
+			return fmt.Errorf("[DEBUG] Error setting Virtual Machine Storage OS Profile Linux Configuration: %#+v", err)
 		}
 	}
+
+	log.Printf("[DEBUG] resp.Properties.OsProfile.LinuxConfiguration")
 
 	if resp.Properties.OsProfile.Secrets != nil {
 		if err := d.Set("os_profile_secrets", flattenAzureRmVirtualMachineOsProfileSecrets(resp.Properties.OsProfile.Secrets)); err != nil {
@@ -502,11 +523,15 @@ func resourceArmVirtualMachineRead(d *schema.ResourceData, meta interface{}) err
 		}
 	}
 
+	log.Printf("[DEBUG] resp.Properties.OsProfile.Secrets")
+
 	if resp.Properties.NetworkProfile != nil {
 		if err := d.Set("network_interface_ids", flattenAzureRmVirtualMachineNetworkInterfaces(resp.Properties.NetworkProfile)); err != nil {
 			return fmt.Errorf("[DEBUG] Error setting Virtual Machine Storage Network Interfaces: %#v", err)
 		}
 	}
+
+	log.Printf("[DEBUG] resp.Properties.NetworkProfile")
 
 	return nil
 }
@@ -755,12 +780,13 @@ func flattenAzureRmVirtualMachineOsProfileLinuxConfiguration(config *compute.Lin
 		ssh_keys := make([]map[string]interface{}, 0, len(*config.SSH.PublicKeys))
 		for _, i := range *config.SSH.PublicKeys {
 			key := make(map[string]interface{})
-			key["name"] = *i.Path
+			key["path"] = *i.Path
 
 			if i.KeyData != nil {
 				key["key_data"] = *i.KeyData
 			}
 
+			log.Printf("[DEBUG] Key DATA: %+v", *i.KeyData)
 			ssh_keys = append(ssh_keys, key)
 		}
 
@@ -1006,8 +1032,8 @@ func expandAzureRmVirtualMachineDataDisk(d *schema.ResourceData) ([]compute.Data
 		name := config["name"].(string)
 		vhd := config["vhd_uri"].(string)
 		createOption := config["create_option"].(string)
-		lun := config["lun"].(int)
-		disk_size := config["disk_size_gb"].(int)
+		lun := int32(config["lun"].(int))
+		disk_size := int32(config["disk_size_gb"].(int))
 
 		data_disk := compute.DataDisk{
 			Name: &name,
@@ -1077,6 +1103,7 @@ func expandAzureRmVirtualMachineOsDisk(d *schema.ResourceData) (*compute.OSDisk,
 
 	name := disk["name"].(string)
 	vhdURI := disk["vhd_uri"].(string)
+	imageURI := disk["image_uri"].(string)
 	createOption := disk["create_option"].(string)
 
 	osDisk := &compute.OSDisk{
@@ -1085,6 +1112,22 @@ func expandAzureRmVirtualMachineOsDisk(d *schema.ResourceData) (*compute.OSDisk,
 			URI: &vhdURI,
 		},
 		CreateOption: compute.DiskCreateOptionTypes(createOption),
+	}
+
+	if v := disk["image_uri"].(string); v != "" {
+		osDisk.Image = &compute.VirtualHardDisk{
+			URI: &imageURI,
+		}
+	}
+
+	if v := disk["os_type"].(string); v != "" {
+		if v == "linux" {
+			osDisk.OsType = compute.Linux
+		} else if v == "windows" {
+			osDisk.OsType = compute.Windows
+		} else {
+			return nil, fmt.Errorf("[ERROR] os_type must be 'linux' or 'windows'")
+		}
 	}
 
 	if v := disk["caching"].(string); v != "" {

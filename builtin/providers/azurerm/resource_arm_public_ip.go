@@ -121,7 +121,7 @@ func resourceArmPublicIpCreate(d *schema.ResourceData, meta interface{}) error {
 	}
 
 	if v, ok := d.GetOk("idle_timeout_in_minutes"); ok {
-		idle_timeout := v.(int)
+		idle_timeout := int32(v.(int))
 		properties.IdleTimeoutInMinutes = &idle_timeout
 	}
 
@@ -132,7 +132,14 @@ func resourceArmPublicIpCreate(d *schema.ResourceData, meta interface{}) error {
 		Tags:       expandTags(tags),
 	}
 
-	resp, err := publicIPClient.CreateOrUpdate(resGroup, name, publicIp)
+	_, err := publicIPClient.CreateOrUpdate(resGroup, name, publicIp)
+	if err != nil {
+		return err
+	}
+
+	// Hack to retrieve the ID of the resource (Was possible easily before: https://github.com/Azure/azure-sdk-for-go/blob/1cb9dff8c37b2918ad1ebd7b294d01100a153d27/arm/network/routes.go#L103)
+	// Maybe the name should be the ID ?
+	resp, err := publicIPClient.Get(resGroup, name, "")
 	if err != nil {
 		return err
 	}

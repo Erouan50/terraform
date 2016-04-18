@@ -112,13 +112,9 @@ func resourceArmStorageAccountCreate(d *schema.ResourceData, meta interface{}) e
 		Tags: expandTags(tags),
 	}
 
-	accResp, err := client.Create(resourceGroupName, storageAccountName, opts)
+	_, err := client.Create(resourceGroupName, storageAccountName, opts)
 	if err != nil {
 		return fmt.Errorf("Error creating Azure Storage Account '%s': %s", storageAccountName, err)
-	}
-	_, err = pollIndefinitelyAsNeeded(client.Client, accResp.Response.Response, http.StatusOK)
-	if err != nil {
-		return fmt.Errorf("Error creating Azure Storage Account %q: %s", storageAccountName, err)
 	}
 
 	// The only way to get the ID back apparently is to read the resource again
@@ -154,11 +150,7 @@ func resourceArmStorageAccountUpdate(d *schema.ResourceData, meta interface{}) e
 				AccountType: storage.AccountType(accountType),
 			},
 		}
-		accResp, err := client.Update(resourceGroupName, storageAccountName, opts)
-		if err != nil {
-			return fmt.Errorf("Error updating Azure Storage Account type %q: %s", storageAccountName, err)
-		}
-		_, err = pollIndefinitelyAsNeeded(client.Client, accResp.Response.Response, http.StatusOK)
+		_, err = client.Update(resourceGroupName, storageAccountName, opts)
 		if err != nil {
 			return fmt.Errorf("Error updating Azure Storage Account type %q: %s", storageAccountName, err)
 		}
@@ -172,11 +164,7 @@ func resourceArmStorageAccountUpdate(d *schema.ResourceData, meta interface{}) e
 		opts := storage.AccountUpdateParameters{
 			Tags: expandTags(tags),
 		}
-		accResp, err := client.Update(resourceGroupName, storageAccountName, opts)
-		if err != nil {
-			return fmt.Errorf("Error updating Azure Storage Account tags %q: %s", storageAccountName, err)
-		}
-		_, err = pollIndefinitelyAsNeeded(client.Client, accResp.Response.Response, http.StatusOK)
+		_, err := client.Update(resourceGroupName, storageAccountName, opts)
 		if err != nil {
 			return fmt.Errorf("Error updating Azure Storage Account tags %q: %s", storageAccountName, err)
 		}
@@ -253,13 +241,9 @@ func resourceArmStorageAccountDelete(d *schema.ResourceData, meta interface{}) e
 	name := id.Path["storageAccounts"]
 	resGroup := id.ResourceGroup
 
-	accResp, err := client.Delete(resGroup, name)
+	_, err = client.Delete(resGroup, name)
 	if err != nil {
 		return fmt.Errorf("Error issuing AzureRM delete request for storage account %q: %s", name, err)
-	}
-	_, err = pollIndefinitelyAsNeeded(client.Client, accResp.Response, http.StatusNotFound)
-	if err != nil {
-		return fmt.Errorf("Error polling for AzureRM delete request for storage account %q: %s", name, err)
 	}
 
 	return nil
